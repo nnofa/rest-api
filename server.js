@@ -2,6 +2,7 @@ var express    = require('express');        // call express
 var app        = express();                 // define our app using express
 var bodyParser = require('body-parser');
 var Product    = require('./models/product');
+var Category   = require('./models/category');
 
 var mongoose   = require('mongoose');
 mongoose.connect('mongodb://localhost/rest-api');
@@ -14,35 +15,47 @@ var port = process.env.PORT || 8080;        // set our port
 
 var router = express.Router();              // get an instance of the express Router
 
-router.get('/', function(req, res) {
-    res.json({ message: 'hooray! welcome to our api!' });   
-});
+const noProductFound = "No product with specified ID can be found";
+
+function InitializeFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilter){
+    var ret ={};
+    //TIL this is almost the same as checking if a value is null or undefined
+    if(colorFilter != null && colorFilter.length > 0){
+        ret.color = colorFilter;
+    }
+    if(sizeFilter != null && sizeFilter.length > 0){
+        ret.size = sizeFilter;    
+    }
+    
+    if(priceMinFilter != null && priceMinFilter.length > 0){
+        ret.price = {};
+        ret.price.$gt = priceMinFilter;  
+    }
+    
+    if(priceMaxFilter != null && priceMaxFilter.length > 0){
+        if(ret.price == null){
+            ret.price = {};
+        }
+        
+        ret.price.$lt = priceMaxFilter
+    }
+    
+    return ret;
+}
 
 router.route('/products')
-    .post(function(req,res){
-        var product = new Product();
-        product.name = req.body.name;
-        product.size = req.body.size;
-        product.color = req.body.color;
-        product.price = req.body.price;
-        console.log("body name is " + product.name);
-        product.save(function(err){
-            if(err) {
-                console.log("error is observed");
-                res.send(err);
-            }
-            
-        });
-        res.json({ message: "product created"});
-        console.log("after saving the  product");
-    })
-    
     .get(function(req,res){
+        var colorFilter = req.body.color;
+        var sizeFilter = req.body.size;
+        var priceMinFilter = req.body.priceMin;
+        var priceMaxFilter = req.body.priceMax;
+        var filter = InitializeFilter()
+        
+        
         Product.find(function(err, products){
             if(err) {
                 res.send(err);
             }
-            console.log("before sending products");
             res.json(products);
         })
     });
@@ -54,20 +67,51 @@ router.route('/product')
         product.size = req.body.size;
         product.color = req.body.color;
         product.price = req.body.price;
-        console.log("before saving the product");
-        product.save(function(err){
+        product.category = req.body.category;
+        product.save(function(err, newproduct){
             if(err) {
-                console.log("error is observed");
                 res.send(err);
             }
-            res.json({ message: "product created"});
+            res.json({ message: "product created", product:newproduct});
         });
-        console.log("after saving the  product");   
+    });
+    
+router.route('/product/:id')
+    // retrieve a product given product id 
+    .get(function(req,res){
+        var id = req.params.id;
+        Product.findOne({_id: id}, function(err, product){
+            if(!err){
+                if(product === null){
+                    res.json({message: noProductFound});
+                } else{
+                    res.json({product: product, message: "successfully found"});
+                }
+            } else{
+                err.message = noProductFound;
+                res.send(err);
+            }
+        });
     })
     
-    .get(function(req,res){
-        
-    });
+    // update a product given product id
+    .put(function(req,res){
+        //unneeded for the assessment
+    })
+    
+    // delete a product given product id
+    .delete(function(req,res){
+        var id = req.params.id;
+        Product.remove({_id: id}, function(err, numRemoved){
+           if(!err && numRemoved > 0){
+               res.json({message: "successfully deleted product " + id});
+           } else if(!err){
+               res.josn({message: noProductFound});  
+           } else{
+               res.json({message: "error on deletion"});
+           }
+        });
+    })
 
 // all of routes will be prefixed with /api
 app.use('/api', router);
