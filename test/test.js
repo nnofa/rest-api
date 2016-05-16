@@ -270,7 +270,148 @@ describe("API tests",function(){
     });
     
     // #6 product with category
+    it("#create a product and a category", function(done){
+      var cname = "New category for product";
+      var pname = "New product with category";
+      var size = 1;
+      var color = 1;
+      var price = 10;
+      
+      server
+      .post("/category")
+      .send({name: cname})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(200);
+        res.body.message.should.equal("category created");
+        res.body.category.name.should.equal(cname);
+        var categoryId = res.body.category._id;
+        
+        server
+        .post("/product")
+        .send({name: cname, size: size, color:color, price:price, categories:[categoryId]})
+        .expect("Content-type",/json/)
+        .end(function(errP,resP){
+          resP.status.should.equal(200)
+          resP.body.product.should.have.property('categories').with.lengthOf(1);
+          resP.body.product.categories.should.containEql(categoryId);
+          done();
+        });
+      });
+      
+    });
     
-    // #7 few products then filter
+    // #7 2 products then filter by size
+    it("#create few products then filter by size", function(done){
+      var firstName = "First filter product";
+      var firstSize = 3;
+      var firstColor = 5;
+      var firstPrice = 100;
+        
+      var secondName = "Second filter product";
+      var secondSize = 4;
+      var secondColor = 6;
+      var secondPrice = 200;
+      
+      server.del("/dropdb").end(function(err, res){
+        //post first product
+        server
+        .post("/product")
+        .send({name: firstName, size: firstSize, color:firstColor, price:firstPrice})
+        .end(function(err,res){
+          
+          //post second product
+           server
+          .post("/product")
+          .send({name: secondName, size: secondSize, color:secondColor, price:secondPrice})
+          .end(function(err,res){
+            server
+            .get("/products?size=" + firstSize)
+            .end(function(err,res){
+              res.body.products.length.should.equal(1);
+              res.body.products[0].name.should.equal(firstName);
+              done();
+            });
+          });
+        });
+      });  
+      
+    });
+    
+    // #8 2 products then filter by color
+    it("#create few products then filter by color", function(done){
+      var firstName = "First filter product";
+      var firstSize = 3;
+      var firstColor = 5;
+      var firstPrice = 100;
+        
+      var secondName = "Second filter product";
+      var secondSize = 4;
+      var secondColor = 6;
+      var secondPrice = 200;
+      
+      server.del("/dropdb").end(function(err, res){
+        //post first product
+        server
+        .post("/product")
+        .send({name: firstName, size: firstSize, color:firstColor, price:firstPrice})
+        .end(function(err,res){
+          var firstProductId = res.body.product._id;
+          //post second product
+           server
+          .post("/product")
+          .send({name: secondName, size: secondSize, color:secondColor, price:secondPrice})
+          .end(function(err,res){
+            server
+            .get("/products?color=" + firstColor)
+            .end(function(err,res){
+              res.body.products.length.should.equal(1);
+              res.body.products[0].name.should.equal(firstName);
+              res.body.products[0]._id.should.equal(firstProductId);
+              done();
+            });
+          });
+        });
+      });  
+      
+    });
+    
+    // #9 2 products then filter by minprice and maxprice
+    it("#create few products then filter by price", function(done){
+      var firstName = "First filter product";
+      var firstSize = 3;
+      var firstColor = 5;
+      var firstPrice = 100;
+        
+      var secondName = "Second filter product";
+      var secondSize = 4;
+      var secondColor = 6;
+      var secondPrice = 200;
+      
+      server.del("/dropdb").end(function(err, res){
+        //post first product
+        server
+        .post("/product")
+        .send({name: firstName, size: firstSize, color:firstColor, price:firstPrice})
+        .end(function(err,res){
+          var firstProductId = res.body.product._id;
+          //post second product
+           server
+          .post("/product")
+          .send({name: secondName, size: secondSize, color:secondColor, price:secondPrice})
+          .end(function(err,res){
+            server
+            .get("/products?priceMin=" + (firstPrice - 10) + "&priceMax=" + (secondPrice -10))
+            .end(function(err,res){
+              res.body.products.length.should.equal(1);
+              res.body.products[0].name.should.equal(firstName);
+              res.body.products[0]._id.should.equal(firstProductId);
+              done();
+            });
+          });
+        });
+      });  
+      
+    });
   });
 });

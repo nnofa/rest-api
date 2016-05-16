@@ -17,9 +17,9 @@ var router = express.Router();              // get an instance of the express Ro
 
 const noProductFound = "No product with specified ID can be found";
 
-function InitializeFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilter){
+function InitializeProductsFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilter){
     var ret ={};
-    //TIL this is almost the same as checking if a value is null or undefined
+    //this is almost the same as checking if a value is null or undefined
     if(colorFilter != null && colorFilter.length > 0){
         ret.color = colorFilter;
     }
@@ -29,7 +29,7 @@ function InitializeFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilte
     
     if(priceMinFilter != null && priceMinFilter.length > 0){
         ret.price = {};
-        ret.price.$gt = priceMinFilter;  
+        ret.price.$gte = priceMinFilter;  
     }
     
     if(priceMaxFilter != null && priceMaxFilter.length > 0){
@@ -37,7 +37,7 @@ function InitializeFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilte
             ret.price = {};
         }
         
-        ret.price.$lt = priceMaxFilter
+        ret.price.$lte = priceMaxFilter
     }
     
     return ret;
@@ -45,18 +45,20 @@ function InitializeFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilte
 
 router.route('/products')
     .get(function(req,res){
-        var colorFilter = req.body.color;
-        var sizeFilter = req.body.size;
-        var priceMinFilter = req.body.priceMin;
-        var priceMaxFilter = req.body.priceMax;
-        var filter = InitializeFilter()
+        var colorFilter = req.query.color;
+        var sizeFilter = req.query.size;
+        console.log("size filter is" + sizeFilter);
+        var priceMinFilter = req.query.priceMin;
+        var priceMaxFilter = req.query.priceMax;
+        //todo: add filter with category but not required for the assessment
+        var filter = InitializeProductsFilter(colorFilter, sizeFilter, priceMinFilter, priceMaxFilter);
         
-        
-        Product.find(function(err, products){
+        Product.find(filter ,function(err, products){
             if(err) {
                 res.send(err);
+            } else{
+                res.json({products: products});
             }
-            res.json(products);
         })
     });
 
@@ -64,15 +66,17 @@ router.route('/product')
     .post(function(req,res){
         var product = new Product();
         product.name = req.body.name;
-        product.size = req.body.size;
-        product.color = req.body.color;
+        product.size = req.body.size; // do conversion here if needed e.g: "XXS" into 0
+        // current assumption, color is somehow converted by front-end stuff to be integer
+        product.color = req.body.color; // do conversion here if needed e.g: "#FF0000" into Red/0, not done here because not enough time
         product.price = req.body.price;
-        product.category = req.body.category;
+        product.categories = req.body.categories;
         product.save(function(err, newproduct){
             if(err) {
-                res.send(err);
+                res.status(400).send(err);
+            } else{
+                res.json({ message: "product created", product:newproduct});
             }
-            res.json({ message: "product created", product:newproduct});
         });
     });
     
@@ -106,13 +110,98 @@ router.route('/product/:id')
            if(!err && numRemoved > 0){
                res.json({message: "successfully deleted product " + id});
            } else if(!err){
-               res.josn({message: noProductFound});  
+               res.json({message: noProductFound});  
            } else{
                res.json({message: "error on deletion"});
            }
         });
     })
 
+//categories 
+router.route('/categories')
+    .get(function(req,res){
+        Category.find(function(err, categories){
+            if(err) {
+                res.send(err);
+            } else{
+                res.json(categories);
+            }
+        }) 
+    });
+
+// post a category, because how this is designed, parent categories must be created first
+// before child categories
+router.route('/category')
+    .post(function(req,res){
+        var name = req.body.name;
+        var parentCategoryId = req.body.parentCategory;
+        var category = new Category(); // new category
+        category.name = name;
+        category.active = true;
+        if(parentCategoryId != null && parentCategoryId.toString().length > 0){
+            Category.find({_id: parentCategoryId}, function(err, parentCategory){
+                if(parentCategory != null){
+                    category.parentCategory = parentCategoryId;
+                    category.save(function(err, newcategory){
+                        if(err) {
+                            res.status(400).send(err);
+                        } else{
+                            res.json({ message: "category created", category: newcategory});
+                            //update childCategories of parent, or parent of parent
+                            Category.update({$or: [{_id: parentCategoryId}, {childCategories: parentCategoryId}]}, 
+                                            {$addToSet: {childCategories: newcategory._id}}, false, true);
+                        }   
+                    });
+                } else{
+                    res.status(400).json({message: "Invalid parent category id"});
+                }
+            });
+        } else{
+            category.save(function(err, newcategory){
+                if(err) {
+                    res.status(400).send(err);
+                } else{
+                    res.json({ message: "category created", category: newcategory});
+                }   
+            });
+        }
+    })
+
+router.route('/category/:id')
+    .get(function(req, res){
+        var id = req.params.id;
+        Category.findOne({_id:id}, function(err, category){
+            if(!err){
+                if(category === null){
+                    res.status(400).json({message: "No category with specific id found"});
+                } else if(category.active === true){
+                    res.json({category: category, message: "successfully found"});
+                } else{
+                    res.json({category: category, message: "deactivated category found"});
+                }
+            } else{
+                err.message = "No category with specific id found";
+                res.status(400).send(err);
+            }
+        });
+    })
+    
+    .delete(function(req,res){
+        //deactivate category instead
+        var id = req.params.id;
+        Category.update({_id:id}, {$set: {active:false}}, function(err){
+            res.json({message: "category deactivated"});    
+        });
+    })
+
+//for testing only
+router.route("/dropdb")
+    .delete(function(req,res){
+        Product.remove({}).exec();
+        Category.remove({}).exec();
+        res.json({message: "database dropped"});
+    })
+    
 // all of routes will be prefixed with /api
 app.use('/api', router);
 
