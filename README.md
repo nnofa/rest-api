@@ -1,18 +1,14 @@
+This is a rest-api test.
 
-     ,-----.,--.                  ,--. ,---.   ,--.,------.  ,------.
-    '  .--./|  | ,---. ,--.,--. ,-|  || o   \  |  ||  .-.  \ |  .---'
-    |  |    |  || .-. ||  ||  |' .-. |`..'  |  |  ||  |  \  :|  `--, 
-    '  '--'\|  |' '-' ''  ''  '\ `-' | .'  /   |  ||  '--'  /|  `---.
-     `-----'`--' `---'  `----'  `---'  `--'    `--'`-------' `------'
-    ----------------------------------------------------------------- 
+The apis are:
+/api/product/:id : get or delete a product // GET or DEL whichever appropriate
+/api/products[?filter] : get all products, can be filtered by color, and size // GET
+/api/product/    : post a product // POST
 
+/api/category/:id : get or deactivate a product // GET or DEL request whichever appropriate
+/api/category/    : post a category //POST
+/api/categories/  : retrieve all categories //GET
 
-Hi there! Welcome to Cloud9 IDE!
-
-To get you started, create some files, play with the terminal,
-or visit http://docs.c9.io for our documentation.
-If you want, you can also go watch some training videos at
-http://www.youtube.com/user/c9ide.
-
-Happy coding!
-The Cloud9 IDE team
+Specification of product  : have unique id. [Name, Color, and Size] must be unique, can have category.
+Specification of category : have a name, can have a parent category or childCategories. 
+For now, parent category must be added first before referencing it to the child.
