@@ -4,7 +4,6 @@ var should = require("should");
 // This agent refers to PORT where program is runninng.
 
 var server = supertest.agent("https://rest-api-nnofa.c9users.io/api");
-
 // UNIT test begin
 
 describe("API tests",function(){
@@ -111,7 +110,167 @@ describe("API tests",function(){
         done();
       });
     });
+    
+    // #5 try to post, delete, then get a category
+    it("create category then delete it directly", function(done){
+      var name = "deactivated category"
+      
+      server
+      .post("/category")
+      .send({name: name})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(200);
+        res.body.message.should.equal("category created");
+        res.body.category.name.should.equal(name);
+        var retCat = res.body.category;
+        
+        server
+        .del("/category/" + res.body.category._id)
+        .expect("Content-type",/json/)
+        .end(function(errDel,resDel){
+          resDel.body.message.should.equal("category deactivated");
+          
+          server
+          .get("/category/" + res.body.category._id)
+          .expect("Content-type",/json/)
+          .end(function(errG,resG){
+            resG.status.should.equal(200);
+            resG.body.message.should.equal("deactivated category found");
+            done();  
+          });
+        });
+        
+      });  
+    });
   });
   
-  
+  //TODO: create product api test
+  describe("test products API", function(){
+    // #1 create a normal product
+    it("create a product and retrieve it", function(done){
+      var name = "first product";
+      var size = 1;
+      var color = 1;
+      var price = 10;
+      
+      server
+      .post("/product")
+      .send({name: name, size: size, color:color, price:price})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(200);
+        res.body.message.should.equal("product created");
+        var retProd = res.body.product;
+        retProd.name.should.equal(name);
+        retProd.size.should.equal(size);
+        retProd.color.should.equal(color);
+        retProd.price.should.equal(price);
+        
+        server
+        .get("/product/" + retProd._id)
+        .expect("Content-type",/json/)
+        .end(function(errG,resG){
+          resG.status.should.equal(200);
+          var getProd = resG.body.product;
+          
+          retProd.name.should.equal(getProd.name);
+          retProd.size.should.equal(getProd.size);
+          retProd.color.should.equal(getProd.color);
+          retProd.price.should.equal(getProd.price);
+          done();  
+        });
+      });
+    });
+    
+    // #2 create a duplicate product (duplicate means same name, color, and size)
+    it("create duplicate product", function(done){
+      var name = "duplicate product";
+      var size = 1;
+      var color = 1;
+      var price = 10;
+      
+      server
+      .post("/product")
+      .send({name: name, size: size, color:color, price:price})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(200);
+        res.body.message.should.equal("product created");
+        var retProd = res.body.product;
+        retProd.name.should.equal(name);
+        retProd.size.should.equal(size);
+        retProd.color.should.equal(color);
+        retProd.price.should.equal(price);
+        
+        server
+        .post("/product")
+        .send({name: name, size: size, color:color, price:price})
+        .expect("Content-type",/json/)
+        .end(function(errG,resG){
+          resG.status.should.equal(400);
+          resG.body.code.should.equal(11000); // duplicate error in mongo
+          done();  
+        });
+      });
+    });
+    
+    // #3 product with negative price
+    it("create product with negative price", function(done){
+      var name = "negative product";
+      var size = 1;
+      var color = 1;
+      var price = -1;
+      
+      server
+      .post("/product")
+      .send({name: name, size: size, color:color, price:price})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(400)
+        res.body.message.should.equal("Validation failed");
+        done();
+      });
+    });
+    
+    // #4 product with no name
+    it("create a product with no name", function(done){
+      var name = "";
+      var size = 1;
+      var color = 1;
+      var price = -1;
+      
+      server
+      .post("/product")
+      .send({name: name, size: size, color:color, price:price})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(400)
+        res.body.message.should.equal("Validation failed");
+        done();
+      });
+    });
+    
+    // #5 product with no size
+    it("create a product with no size", function(done){
+      var name = "no size product";
+      var size = "";
+      var color = 1;
+      var price = -1;
+      
+      server
+      .post("/product")
+      .send({name: name, size: size, color:color, price:price})
+      .expect("Content-type",/json/)
+      .end(function(err,res){
+        res.status.should.equal(400)
+        res.body.message.should.equal("Validation failed");
+        done();
+      });
+    });
+    
+    // #6 product with category
+    
+    // #7 few products then filter
+  });
 });
